@@ -3,6 +3,7 @@
 *.a
 *.swp
 objs/
+.vscode
 
 btc
 RPN
