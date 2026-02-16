@@ -89,14 +89,14 @@ void BitcoinExchange::parseDatabase(const std::string &path) {
             ss << linePair.second;
             ss >> value;
         } catch (std::exception &ex) {
-            ss.clear();
+            ss.str("");
             ss << lineNbr;
             throw std::runtime_error("Failed to parse line " + ss.str() +
                                      ": Failed to parse exchange rate");
         }
 
         if (m_map.find(linePair.first) != m_map.end()) {
-            ss.clear();
+            ss.str("");
             ss << lineNbr;
             throw std::runtime_error("Duplicate entry for " + linePair.first +
                                      " in line " + ss.str());
@@ -105,6 +105,7 @@ void BitcoinExchange::parseDatabase(const std::string &path) {
         lineNbr++;
     }
 
+    file.clear(std::_S_eofbit); // clear eof bit from reading the whole file
     file.close();
     if (file.fail()) {
         throw std::runtime_error("Failed closing the file " + path);
