@@ -1,0 +1,9 @@
+*.d
+*.o
+*.a
+*.swp
+objs/
+
+btc
+RPN
+PmergeMe
