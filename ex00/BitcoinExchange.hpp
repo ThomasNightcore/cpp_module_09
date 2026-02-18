@@ -21,15 +21,16 @@ public:
     BitcoinExchange &operator=(const BitcoinExchange &other);
 
     const bool &hasValidData(void) const;
-    void printData(void) const;
     double getExchangeRateAt(const std::string &date) const;
 
     static const std::string HEADER_FIRST_VAL;
     static const std::string HEADER_SECOND_VAL;
 
     // Util
+    static std::pair<std::string, double> getLinePair(const std::string &line,
+                                                      const char seperator);
     static std::pair<std::string, std::string>
-    getLinePair(const std::string &line, const char seperator);
+    getLinePairStr(const std::string &line, const char seperator);
     static bool isValidDate(const std::string &date);
     static void trimString(std::string &str);
 };

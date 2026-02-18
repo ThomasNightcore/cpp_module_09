@@ -1,8 +1,11 @@
 #include "BitcoinExchange.hpp"
-#include <algorithm>
+#include <cerrno>
+#include <cmath>
+#include <cstdlib>
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -52,24 +55,25 @@ void BitcoinExchange::parseDatabase(const std::string &path) {
 
     // check header validity
     std::getline(file, line);
-    std::pair<std::string, std::string> linePair;
+    std::pair<std::string, std::string> headerPair;
     try {
-        linePair = getLinePair(line, ',');
+        headerPair = getLinePairStr(line, ',');
     } catch (std::exception &ex) {
         throw std::runtime_error("Failed to parse header line: " +
                                  std::string(ex.what()));
     }
-    if (linePair.first != HEADER_FIRST_VAL) {
-        throw std::runtime_error(
-            "Header does not contain \'date\' as the first value");
+    if (headerPair.first != HEADER_FIRST_VAL) {
+        throw std::runtime_error("Header does not contain \'" +
+                                 HEADER_FIRST_VAL + "\' as the first value");
     }
-    if (linePair.second != HEADER_SECOND_VAL) {
-        throw std::runtime_error(
-            "Header does not contain \'exchange_rate\' as the second value");
+    if (headerPair.second != HEADER_SECOND_VAL) {
+        throw std::runtime_error("Header does not contain \'" +
+                                 HEADER_SECOND_VAL + "\' as the second value");
     }
 
     // parse all remaining lines
     int lineNbr = 2;
+    std::pair<std::string, double> linePair;
     while (std::getline(file, line)) {
         std::stringstream ss;
         try {
@@ -78,22 +82,6 @@ void BitcoinExchange::parseDatabase(const std::string &path) {
             ss << "Failed to parse line " << lineNbr << ": " << ex.what();
             throw std::runtime_error(ss.str());
         }
-        if (!isValidDate(linePair.first)) {
-            ss << lineNbr;
-            throw std::runtime_error("Failed to parse line " + ss.str() +
-                                     ": Date provided is not valid");
-        }
-
-        double value;
-        try {
-            ss << linePair.second;
-            ss >> value;
-        } catch (std::exception &ex) {
-            ss.str("");
-            ss << lineNbr;
-            throw std::runtime_error("Failed to parse line " + ss.str() +
-                                     ": Failed to parse exchange rate");
-        }
 
         if (m_map.find(linePair.first) != m_map.end()) {
             ss.str("");
@@ -101,7 +89,7 @@ void BitcoinExchange::parseDatabase(const std::string &path) {
             throw std::runtime_error("Duplicate entry for " + linePair.first +
                                      " in line " + ss.str());
         }
-        m_map.insert(std::pair<std::string, double>(linePair.first, value));
+        m_map.insert(linePair);
         lineNbr++;
     }
 
@@ -118,29 +106,29 @@ double BitcoinExchange::getExchangeRateAt(const std::string &date) const {
             "Bitcoin didn't exist yet. Choose a date after " +
             m_map.begin()->first);
     }
-    // find the right value here
-    return 0;
+
+    std::map<std::string, double>::const_iterator iter = m_map.find(date);
+    if (iter != m_map.end()) {
+        return iter->second;
+    }
+
+    for (iter = m_map.begin(); iter != m_map.end(); iter++) {
+        if (iter->first > date)
+            break;
+    }
+
+    return (--iter)->second;
 }
 
 const bool &BitcoinExchange::hasValidData(void) const {
     return m_has_valid_map;
 }
 
-void BitcoinExchange::printData(void) const {
-
-    std::cout << " ========= Printing Map =========" << std::endl;
-    std::map<std::string, double>::const_iterator iter;
-    for (iter = m_map.begin(); iter != m_map.end(); iter++) {
-        std::cout << "[" << iter->first << ", " << iter->second << "]"
-                  << std::endl;
-    }
-}
-
 // ###################
 // #   Static Util   #
 // ###################
 std::pair<std::string, std::string>
-BitcoinExchange::getLinePair(const std::string &line, const char seperator) {
+BitcoinExchange::getLinePairStr(const std::string &line, const char seperator) {
     std::string::size_type pos = line.find(seperator);
     if (pos == std::string::npos) {
         throw std::runtime_error("No seperator found");
@@ -153,7 +141,29 @@ BitcoinExchange::getLinePair(const std::string &line, const char seperator) {
     std::string two = line.substr(pos + 1, line.length());
     trimString(one);
     trimString(two);
+
     return std::pair<std::string, std::string>(one, two);
+}
+
+std::pair<std::string, double>
+BitcoinExchange::getLinePair(const std::string &line, const char seperator) {
+    std::pair<std::string, std::string> pair = getLinePairStr(line, seperator);
+
+    if (!isValidDate(pair.first)) {
+        throw std::runtime_error("Date provided is not valid");
+    }
+
+    char *end;
+    extern int errno;
+    errno = 0;
+    double val_two = std::strtod(pair.second.c_str(), &end);
+    if (errno == ERANGE)
+        throw std::invalid_argument("second parameter is out of range");
+    if (val_two == INFINITY || val_two == NAN || end == pair.second.c_str() ||
+        *end != '\0')
+        throw std::invalid_argument("invalid value for second parameter");
+
+    return std::pair<std::string, double>(pair.first, val_two);
 }
 
 /* a year is a leap year if it is divisible by 4, but not by 100 unless

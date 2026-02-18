@@ -1,7 +1,9 @@
 
 #include "BitcoinExchange.hpp"
 #include <exception>
+#include <fstream>
 #include <iostream>
+#include <string>
 #include <utility>
 
 /*
@@ -62,12 +64,12 @@ static void dateTests(void) {
 }
 
 static void testPair(const std::string &str, const char seperator) {
-    std::pair<std::string, std::string> pair;
+    std::pair<std::string, double> pair;
     try {
         pair = BitcoinExchange::getLinePair(str, seperator);
     } catch (std::exception &ex) {
-        std::cout << "Failed getting a line pair because: " << ex.what()
-                  << std::endl;
+        std::cout << "Failed getting a line pair for \'" << str
+                  << "\' because: " << ex.what() << std::endl;
         return;
     }
     std::cout << "[" << pair.first << ", " << pair.second << "]" << std::endl;
@@ -76,18 +78,18 @@ static void testPair(const std::string &str, const char seperator) {
 static void linePairTests(void) {
     std::cout << " ==== Testing parsing lines to get pairs ==== " << std::endl;
 
-    testPair("  2024689 , 123", ',');
-    testPair("  1230-21-23 , 1.2399017", ',');
-    testPair("  1230-21-23 , 1.2399017", '|');
-    testPair("  1230-21-23 | 1.2399017", '|');
-    testPair("  1230-21-23 | |1.2399017", '|');
-    testPair("1230-21-23|1.2399017|", '|');
-    testPair("1230-21-23|1.2399017", '|');
+    testPair(" 2050-01-02, 123", ',');
+    testPair("  1230-12-23 , 1.2399017", ',');
+    testPair("  1230-12-23 , 1.2399017", '|');
+    testPair("  1230-12-23 | 1.2399017", '|');
+    testPair("  1230-12-23 | |1.2399017", '|');
+    testPair("1230-12-23|1.2399017|", '|');
+    testPair("1230-12-23|1.2399017", '|');
     testPair("1.2399017", '|');
 }
 */
 
-int main(void) {
+int main(int argc, char **argv) {
 
     /*
     dateTests();
@@ -95,11 +97,81 @@ int main(void) {
     linePairTests();
     */
 
+    if (argc != 2) {
+        std::cout << "Usage: ./btc \'input.txt\'" << std::endl;
+        return 1;
+    }
+
     BitcoinExchange btc = BitcoinExchange("data.csv");
     if (!btc.hasValidData()) {
         return 1;
     }
 
-    btc.printData();
+    std::ifstream file(argv[1]);
+    if (file.fail()) {
+        std::cout << "failed to open file " << argv[1] << std::endl;
+        return 1;
+    }
+
+    std::string line;
+    std::getline(file, line);
+    std::pair<std::string, std::string> headerPair;
+    try {
+        headerPair = BitcoinExchange::getLinePairStr(line, '|');
+    } catch (std::exception &ex) {
+        std::cout << "\033[31mFailed to parse header line: " << ex.what()
+                  << "\033[0m";
+    }
+    if (headerPair.first != "date") {
+        std::cout << "\033[31mHeader does not contain \'date\' as the first "
+                     "value\033[0m"
+                  << std::endl;
+    }
+    if (headerPair.second != "value") {
+        std::cout << "\033[31mHeader does not contain \'value\' as the first "
+                     "value\033[0m"
+                  << std::endl;
+    }
+
+    while (std::getline(file, line)) {
+        std::pair<std::string, double> pair;
+        try {
+            pair = BitcoinExchange::getLinePair(line, '|');
+        } catch (std::exception &ex) {
+            std::cout << "\033[31mError: " << ex.what() << "\033[0m"
+                      << std::endl;
+            continue;
+        }
+
+        if (pair.second < 0) {
+            std::cout << "\033[31mError: negative number\033[0m" << std::endl;
+            continue;
+        }
+        if (pair.second > 1000) {
+            std::cout << "\033[31mError: number too large\033[0m" << std::endl;
+            continue;
+        }
+
+        double exchange_rate;
+        try {
+            exchange_rate = btc.getExchangeRateAt(pair.first);
+        } catch (std::exception &ex) {
+            std::cout << "\033[31mError: " << ex.what() << "\033[0m"
+                      << std::endl;
+            continue;
+        }
+
+        double res = pair.second * exchange_rate;
+        std::cout << pair.first << " => " << pair.second << " = " << res
+                  << std::endl;
+    }
+
+    file.clear(std::_S_eofbit);
+    file.close();
+    if (file.fail()) {
+        std::cout << "failed to close file " << argv[1] << std::endl;
+        return 1;
+    }
+
     return 0;
 }
