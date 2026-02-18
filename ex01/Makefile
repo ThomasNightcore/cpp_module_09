@@ -23,7 +23,7 @@ OBJS				:= $(addprefix $(OBJS_DIR), $(OBJ_FILES))
 DEPENDENCIES		:= $(addprefix $(OBJS_DIR), $(DEP_FILES))
 
 # Compilation variables
-NAME				= btc
+NAME				= RPN
 CXX 				= c++
 CXXFLAGS 			= -Wall -Werror -Wextra -std=c++98 -MMD -MP
 RM 					= rm -rf
