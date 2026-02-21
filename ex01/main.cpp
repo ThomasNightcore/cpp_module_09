@@ -7,7 +7,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    std::string input(argv[1]);
-    (void)input;
+    RPN rpn;
+    rpn.calculateFormula(argv[1]);
     return 0;
 }
