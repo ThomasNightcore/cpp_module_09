@@ -10,6 +10,7 @@ private:
     std::stack<double, std::list<double> > m_stack;
 
     bool tryValidateFormula(const std::string &formula) const;
+    bool tryUseOperator(const char &op);
 
     static bool isOperator(const char c);
     static void printError(const std::string &str);

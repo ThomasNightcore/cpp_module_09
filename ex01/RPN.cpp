@@ -2,7 +2,7 @@
 #include "RPN.hpp"
 #include <cctype>
 #include <iostream>
-#include <sstream>
+#include <stack>
 
 RPN::RPN(void) {
     m_stack = std::stack<double, std::list<double> >();
@@ -23,64 +23,80 @@ RPN &RPN::operator=(const RPN &other) {
     return *this;
 }
 
-void RPN::calculateFormula(const std::string &formula) {
-    if (!tryValidateFormula(formula)) {
-        return;
-    }
-}
-
-bool RPN::tryValidateFormula(const std::string &formula) const {
-    if (formula.empty()) {
-        printError("Invalid input");
+bool RPN::tryUseOperator(const char &op) {
+    if (m_stack.size() < 2) {
+        m_stack.pop();
+        printError("Invalid formula");
         return false;
     }
 
-    bool has_whitespace = false;
-    unsigned int op_count = 0;
-    unsigned int nb_count = 0;
+    double b = m_stack.top();
+    m_stack.pop();
+    double a = m_stack.top();
+    m_stack.pop();
+    double res;
+
+    switch (op) {
+        case '*': {
+            res = a * b;
+            break;
+        }
+        case '/': {
+            if (b == 0) {
+                m_stack = std::stack<double, std::list<double> >();
+                printError("Division by zero");
+                return false;
+            }
+            res = a / b;
+            break;
+        }
+        case '+': {
+            res = a + b;
+            break;
+        }
+        case '-': {
+            res = a - b;
+            break;
+        }
+        default: {
+            printError("Invalid character found");
+            return false;
+        }
+    }
+
+    m_stack.push(res);
+    return true;
+}
+
+void RPN::calculateFormula(const std::string &formula) {
+    bool has_whitespace = true;
     std::string::const_iterator it = formula.begin();
 
-    for (it = formula.begin(); it != formula.end(); it++) {
+    for (; it != formula.end(); it++) {
         if (std::isspace(*it)) {
             has_whitespace = true;
             continue;
         }
         if (!has_whitespace) {
-            printError(
-                "Only single characters are accepted as formula variables");
-            return false;
+            printError("Only single characters are accepted as formula "
+                       "variables/operators");
+            return;
         }
 
-        has_whitespace = false;
-        if (isOperator(*it)) {
-            op_count++;
-        } else if (std::isdigit(*it)) {
-            nb_count++;
-        } else {
-            printError("Invalid character in formula");
-            return false;
+        if (std::isdigit(*it)) {
+            m_stack.push(*it - '0');
+        } else if (!tryUseOperator(*it)) {
+            return;
         }
     }
-
-    std::cout << "ops=" << op_count << " : nbrs=" << nb_count << std::endl;
-    if (nb_count != op_count + 1) {
+    if (m_stack.size() != 1) {
+        m_stack = std::stack<double, std::list<double> >();
         printError("Invalid formula");
-        return false;
+        return;
     }
 
-    return true;
-}
-
-bool RPN::isOperator(const char c) {
-    switch (c) {
-        case '*':
-        case '/':
-        case '+':
-        case '-':
-            return true;
-        default:
-            return false;
-    }
+    std::cout << m_stack.top() << std::endl;
+    m_stack.pop();
 }
 
 void RPN::printError(const std::string &str) {
