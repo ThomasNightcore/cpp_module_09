@@ -25,7 +25,7 @@ RPN &RPN::operator=(const RPN &other) {
 
 bool RPN::tryUseOperator(const char &op) {
     if (m_stack.size() < 2) {
-        m_stack.pop();
+        m_stack = std::stack<double, std::list<double> >();
         printError("Invalid formula");
         return false;
     }
