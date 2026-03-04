@@ -59,6 +59,7 @@ bool RPN::tryUseOperator(const char &op) {
             break;
         }
         default: {
+            m_stack = std::stack<double, std::list<double> >();
             printError("Invalid character found");
             return false;
         }
